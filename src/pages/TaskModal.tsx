@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Clock, Copy, Image as ImageIcon, Link2, Paperclip, Plus, RefreshCw, Send, ShieldCheck, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { uid } from '../data/seed';
 import type { Status } from '../types';
@@ -158,7 +159,7 @@ export function TaskModal({ id, onClose, startReview }: { id: string; onClose: (
               </div>
             </div>
 
-            {(t.status === 'in_progress' || t.status === 'todo' || t.status === 'support') && isWorker && t.creationApproval === 'approved' && !askReview && (
+            {(t.status === 'in_progress' || t.status === 'todo' || t.status === 'support') && isWorker && t.creationApproval === 'approved' && !askReview && !t.revision && (
               <button className="btn primary" onClick={() => setAskReview(true)}><Send size={16} /> Submit for Review</button>
             )}
             {askReview && (
@@ -195,7 +196,7 @@ export function TaskModal({ id, onClose, startReview }: { id: string; onClose: (
               <input className="input mono" style={{ fontSize: 11.5 }} readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
               <div className="row">
                 <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(shareUrl); toast('Link copied'); }}><Copy size={14} /> Copy</button>
-                <a className="btn sm" href={`/share/${t.approvalToken}`} target="_blank" rel="noreferrer">Preview</a>
+                <Link className="btn sm" to={`/share/${t.approvalToken}`} onClick={onClose}>Preview</Link>
               </div>
               {t.clientDecision && <div className={`chip ${t.clientDecision.decision === 'approved' ? 'green' : 'red'}`}>Client {t.clientDecision.decision === 'approved' ? 'approved' : 'asked for changes'} · {t.clientDecision.name}</div>}
               {t.clientDecision?.note && <div className="muted" style={{ fontSize: 13 }}>“{t.clientDecision.note}”</div>}

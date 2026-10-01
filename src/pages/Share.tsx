@@ -1,13 +1,13 @@
 import { CheckCircle2, MessageSquareWarning } from 'lucide-react';
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useStore } from '../store';
 import { Field, fmtDate } from '../components/ui';
 
 // Public, login-free page for clients, reached through the task's tokenised share link.
 export default function Share() {
   const { token } = useParams();
-  const { tasks, client, patchTask, user } = useStore();
+  const { tasks, client, patchTask, user, toast } = useStore();
   const t = tasks.find((x) => x.approvalToken === token);
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
@@ -16,13 +16,14 @@ export default function Share() {
   const visible = t.comments.filter((x) => !x.internal);
 
   const decide = (decision: 'approved' | 'changes') => {
-    if (!name.trim()) return alert('Please enter your name so we know who responded.');
-    if (decision === 'changes' && !note.trim()) return alert('Tell us what to change.');
+    if (!name.trim()) return toast('Please enter your name so we know who responded.', 'err');
+    if (decision === 'changes' && !note.trim()) return toast('Tell us what to change.', 'err');
     patchTask(t.id, { clientDecision: { decision, note: note.trim(), name: name.trim(), at: new Date().toISOString() } }, decision === 'approved' ? `Client (${name.trim()}) approved the deliverable` : `Client (${name.trim()}) requested changes: ${note.trim()}`);
   };
 
   return (
     <div className="share col" style={{ gap: 18 }}>
+      <Link to="/board" className="muted" style={{ fontSize: 13 }}>← Back to workspace (internal preview)</Link>
       <div className="row"><div className="brand-mark">B</div><div><b style={{ fontSize: 18 }}>Ambizcon</b><div className="muted">Deliverable review for {c?.name}</div></div></div>
       <div className="card col">
         <h1 style={{ fontSize: 24 }}>{t.title}</h1>
