@@ -1,9 +1,10 @@
-import { Paperclip, RefreshCw, Sparkles } from 'lucide-react';
+import { Paperclip, Sparkles } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { iso, templates, token, uid, day } from '../data/seed';
-import type { Attachment, Frequency, Priority, Task, Team } from '../types';
+import type { Attachment, Priority, Task, Team } from '../types';
 import { Field, Modal, readDataUrl, validateFile } from '../components/ui';
+import { ReminderSection, emptyReminder, reminderError, type ReminderDraft } from '../components/ReminderSection';
 
 export function CreateTaskModal({ onClose }: { onClose: () => void }) {
   const { me, users, clients, isLead, isAdmin, addTask, addClient, toast, tasks } = useStore();
@@ -21,7 +22,7 @@ export function CreateTaskModal({ onClose }: { onClose: () => void }) {
   const [due, setDue] = useState('');
   const [est, setEst] = useState(4);
   const [labels, setLabels] = useState('');
-  const [recurring, setRecurring] = useState<'' | Frequency>('');
+  const [rem, setRem] = useState<ReminderDraft>(emptyReminder);
   const [subtasks, setSubtasks] = useState<string[]>([]);
   const [files, setFiles] = useState<Attachment[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -35,7 +36,9 @@ export function CreateTaskModal({ onClose }: { onClose: () => void }) {
     const t = templates.find((x) => x.id === id);
     if (!t) return;
     setTpl(id); setTitle((v) => v || t.name); setTeam(t.team); setEst(t.estHours); setPriority(t.priority);
-    setLabels(t.labels.join(', ')); setRecurring(t.recurring ?? ''); setSubtasks(t.subtasks);
+    setLabels(t.labels.join(', ')); setRem(t.recurring
+      ? { ...emptyReminder, enabled: true, frequency: t.recurring === 'quarterly' ? 'custom' : t.recurring, every: 3, unit: 'months', date: due || day(1) }
+      : emptyReminder); setSubtasks(t.subtasks);
   };
 
   const addFiles = async (list: FileList | null) => {
@@ -58,6 +61,8 @@ export function CreateTaskModal({ onClose }: { onClose: () => void }) {
       cid = addClient(newClient.trim());
     }
     if (!cid) return toast('Pick a client', 'err');
+    const remErr = reminderError(rem, day(0));
+    if (remErr) return toast(remErr, 'err');
     const n = Math.max(100, ...tasks.map((t) => parseInt(t.id.slice(2), 10) || 0)) + 1;
     const needsSignoff = !isLead; // members' tasks wait for Team Lead / Super Admin
     const task: Task = {
@@ -66,7 +71,9 @@ export function CreateTaskModal({ onClose }: { onClose: () => void }) {
       createdBy: me.id, labels: labels.split(',').map((l) => l.trim()).filter(Boolean), due: due || undefined, estHours: est,
       timeEntries: [], subtasks: subtasks.map((s) => ({ id: uid('st'), title: s, done: false })), attachments: files, comments: [],
       history: [{ id: uid('h'), userId: me.id, text: cross ? `Created cross-team request for ${effectiveTeam}` : 'Created this task', at: iso(0, new Date().getHours(), new Date().getMinutes()) }],
-      recurring: recurring || undefined, creationApproval: needsSignoff ? 'pending' : 'approved', incoming: cross && effectiveTeam !== me.team,
+      recurring: rem.enabled && ['daily', 'weekly', 'monthly'].includes(rem.frequency) ? (rem.frequency as 'daily' | 'weekly' | 'monthly') : undefined,
+      reminder: rem.enabled ? { frequency: rem.frequency, date: rem.date, time: rem.time, ...(rem.frequency === 'custom' ? { every: rem.every, unit: rem.unit } : {}), ...(rem.frequency !== 'once' && rem.endMode === 'date' ? { until: rem.until } : {}) } : undefined,
+      creationApproval: needsSignoff ? 'pending' : 'approved', incoming: cross && effectiveTeam !== me.team,
       approvalToken: token(), createdAt: new Date().toISOString(),
     };
     addTask(task);
@@ -120,18 +127,12 @@ export function CreateTaskModal({ onClose }: { onClose: () => void }) {
           <Field label="Labels (comma separated)"><input className="input" value={labels} onChange={(e) => setLabels(e.target.value)} placeholder="Figma, Mobile" /></Field>
         </div>
 
-        <div className="grid g2">
-          <Field label="Recurring">
-            <div className="row"><RefreshCw size={16} className="muted" />
-              <select className="select" value={recurring} onChange={(e) => setRecurring(e.target.value as '' | Frequency)}>
-                <option value="">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option>
-              </select></div>
-          </Field>
-          <Field label="Attachments (max 5MB each)">
-            <button className="btn" type="button" onClick={() => fileRef.current?.click()}><Paperclip size={15} /> {files.length ? `${files.length} file(s) attached` : 'Add files'}</button>
-            <input ref={fileRef} hidden multiple type="file" onChange={(e) => addFiles(e.target.files)} />
-          </Field>
-        </div>
+        <ReminderSection value={rem} onChange={setRem} dueDate={due} today={day(0)} />
+
+        <Field label="Attachments (max 5MB each)">
+          <div><button className="btn" type="button" onClick={() => fileRef.current?.click()}><Paperclip size={15} /> {files.length ? `${files.length} file(s) attached` : 'Add files'}</button></div>
+          <input ref={fileRef} hidden multiple type="file" onChange={(e) => addFiles(e.target.files)} />
+        </Field>
 
         {subtasks.length > 0 && (
           <div><h3 className="sec-title">Subtask checklist (from template)</h3>

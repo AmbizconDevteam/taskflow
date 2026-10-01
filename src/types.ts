@@ -7,6 +7,15 @@ export type Status = 'backlog' | 'todo' | 'in_progress' | 'review' | 'support' |
 export type Priority = 'low' | 'medium' | 'high' | 'critical' | 'urgent';
 export type Frequency = 'daily' | 'weekly' | 'monthly' | 'quarterly';
 
+export interface Reminder {
+  frequency: 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+  every?: number; // custom only
+  unit?: 'days' | 'weeks' | 'months'; // custom only
+  date: string; // first reminder, YYYY-MM-DD
+  time: string; // HH:MM, 24h
+  until?: string; // repeat end date; undefined = never ends
+}
+
 export interface User {
   id: string;
   name: string;
@@ -110,6 +119,7 @@ export interface Task {
   comments: Comment[];
   history: HistoryEntry[];
   recurring?: Frequency;
+  reminder?: Reminder;
   creationApproval: 'pending' | 'approved'; // member-created tasks need lead sign-off
   incoming: boolean; // cross-team request waiting in the target team's queue
   revision?: { note: string; by: string; at: string };
